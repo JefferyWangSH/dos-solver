@@ -85,6 +85,8 @@ class Kernel:
         self._corr_length = corr_length
 
     # TODO: accelarate assignment of values, avoiding `for`
+    # this step, the generation of kernel, should be the most computational expensive part of the program,
+    # in case of large size of lattice.
     def init(self) -> None:
         for i, k in enumerate(self._momentum_grids.MomentumGrids()):
             for j, p in enumerate(self._momentum_grids.MomentumGrids()):

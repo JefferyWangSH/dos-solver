@@ -12,18 +12,22 @@ if "__main__":
     """
 
     # setting up params for grids
-    lattice_size = 16
+    lattice_size = 100
     freq_range = [-30.0, 30.0]
     freq_num = int(1e3)
 
-    infinitesimal_imag = 0.95
+    # some comments for the strategy of choicing the imaginary value:
+    # a large imaginary value tends to smooth out the effect of finite lattice size, thus leading to a smooth dos curve.
+    # hence, as the imaginary valude decreases, the lattice size should be correspondingly increased 
+    # to avoid the sharp-peak behaviour of results.
+    infinitesimal_imag = 0.1
 
     # setting up model params
     mass = 1.0
     fermi_momentum = np.pi/2
     fermi_surface = fermi_momentum**2/(2*mass)
     static_gap = 1.0
-    corr_length = 40.0
+    corr_length = 300.0
 
     # record cpu time
     time_begin = time.time()
@@ -82,6 +86,6 @@ if "__main__":
     plt.xlabel("${\omega}$", fontsize=13)
     plt.ylabel("${N(\omega)}$", fontsize=13)
     plt.tight_layout()
-    plt.savefig("./out/out.pdf")
+    plt.savefig("./version_discrete/results/out.pdf")
     plt.show()
     
