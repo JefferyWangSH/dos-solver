@@ -12,47 +12,26 @@ class FreePropagator:
         assert(isinstance(momentum_grids, MomentumGrids))
         self._freq_grids = frequency_grids
         self._momentum_grids = momentum_grids
-        self._mass = 1.0
+        self._hopping = 1.0
         self._chemical_potential = 1.0
         self._infinitesimal_imag = 1.0
         self._arrary2d = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
     
-    def SetModelParms(self, mass, chemical_potential) -> None:
-        self._mass = mass
+    def SetModelParms(self, hopping, chemical_potential) -> None:
+        self._hopping = hopping
         self._chemical_potential = chemical_potential
 
     def SetInfinitesimalImag(self, infinitesimal_imag) -> None:
         assert(isinstance(infinitesimal_imag, float))
         self._infinitesimal_imag = infinitesimal_imag
-    
-    # def FreePropagator(self, k, omega):
-    #     assert(isinstance(k, LatticeMomentum))
-    #     assert(isinstance(omega, complex) or isinstance(omega, float))
-    #     # the plus sign here indicates that,
-    #     # there exist a partical-hole symmetry in our model of phase-disordered supercondutivity.
-    #     return (omega + k.abs()**2/(2*self._mass) - self._chemical_potential)**-1
 
     def init(self):
         # use broadcast property of numpy and accelate the creation of free propagator matrix
-        tmp_k = np.array(np.mat([k.abs() for k in self._momentum_grids.MomentumGrids()]).transpose())
+        tmp_ek = np.array(np.mat([ k.energy(self._hopping, self._chemical_potential) for k in self._momentum_grids.MomentumGrids() ]).transpose())
         tmp_omega = self._freq_grids.Grids() + self._infinitesimal_imag * 1.0j
-        self._arrary2d = (tmp_omega + tmp_k**2/(2*self._mass) - self._chemical_potential)**-1
-
-        # for i, k in enumerate(self._momentum_grids.MomentumGrids()):
-        #     for j, omega in enumerate(self._freq_grids.Grids()):
-        #         omega = complex(omega, self._infinitesimal_imag)
-        #         # the plus sign here indicates that,
-        #         # there exist a partical-hole symmetry in our model of phase-disordered supercondutivity.
-        #         self._arrary2d[i,j] = (omega + k.abs()**2/(2*self._mass) - self._chemical_potential)**-1
-
-        # for i in range(self.MomentumDim()):
-        #     for j in range(self.FrequencyDim()):
-        #         k = self._momentum_grids[i].abs()
-        #         omega = complex(self._freq_grids[j], self._infinitesimal_imag)
-
-        #         # the plus sign here indicates that,
-        #         # there exist a partical-hole symmetry in our model of phase-disordered supercondutivity.
-        #         self._arrary2d[i,j] = (omega + k**2/(2*self._mass) - self._chemical_potential)**-1
+        # the plus sign here indicates that,
+        # there exist a partical-hole symmetry in our model of phase-disordered supercondutivity.
+        self._arrary2d = (tmp_omega + tmp_ek)**-1
 
     def FrequencyDim(self) -> int:
         return self._freq_grids.GridsNum()
@@ -92,17 +71,6 @@ class Kernel:
             for j, p in enumerate(self._momentum_grids.MomentumGrids()):
                 self._array2d[i,j] = (k+p).abs()
         self._array2d = (1+(self._array2d*self._corr_length)**2)**-1.5 * np.pi/2 * (self._static_gap*self._corr_length)**2 / self.Dim()
-
-        # for i, k in enumerate(self._momentum_grids.MomentumGrids()):
-        #     for j, p in enumerate(self._momentum_grids.MomentumGrids()):
-        #         self._array2d[i,j] = (1+((k+p).abs()*self._corr_length)**2)**-1.5
-
-        # for i in range(self.Dim()):
-        #     for j in range(self.Dim()):
-        #         k = self._momentum_grids[i]
-        #         p = self._momentum_grids[j]
-        #         self._array2d[i,j] = (1+((k+p).abs()*self._corr_length)**2)**-1.5
-        # self._array2d *= np.pi/2 * (self._static_gap*self._corr_length)**2 / self.Dim()
     
     def Dim(self) -> int:
         return self._momentum_grids.GridsNum()
