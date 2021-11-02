@@ -63,13 +63,17 @@ class Kernel:
         self._static_gap = static_gap
         self._corr_length = corr_length
 
-    # TODO: accelarate assignment of values, avoiding `for`
     # this step, the generation of kernel, should be the most computational expensive part of the program,
     # in case of large size of lattice.
     def init(self) -> None:
-        for i, k in enumerate(self._momentum_grids.MomentumGrids()):
-            for j, p in enumerate(self._momentum_grids.MomentumGrids()):
-                self._array2d[i,j] = (k+p).abs()
+        # accelarate the fabrication of kernel by using operations between arrays.
+        # again, the broadcast property of numpy arrays is used.
+        tmp_px = np.array([ k.data()[0] for k in self._momentum_grids.MomentumGrids() ])
+        tmp_py = np.array([ k.data()[1] for k in self._momentum_grids.MomentumGrids() ])
+        tmp_kx = np.array(np.mat(tmp_px).transpose())
+        tmp_ky = np.array(np.mat(tmp_py).transpose())
+        self._array2d = ( ((tmp_kx+tmp_px) - 2*np.pi*((tmp_kx+tmp_px+np.pi)//(2*np.pi)))**2 
+                        + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2 )**0.5
         self._array2d = (1+(self._array2d*self._corr_length)**2)**-1.5 * np.pi/2 * (self._static_gap*self._corr_length)**2 / self.Dim()
     
     def Dim(self) -> int:

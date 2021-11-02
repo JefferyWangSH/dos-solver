@@ -9,7 +9,12 @@ from matplotlib import pyplot as plt
 """
     subroutine for the evaluation of density of states
 """
-def dos_run():
+def dos_run(task_id):
+    assert(isinstance(task_id, int))
+    
+    # record cpu time
+    begin_time = time.time()
+
     # initialize grids
     freq_grid = FrequencyGrids(num_of_grids = freq_num, freqency_range = freq_range)
     k_grid = MomentumGrids(num_of_grids_per_length = lattice_size)
@@ -38,7 +43,9 @@ def dos_run():
 
     # collecting density of states
     dos_list = spectrum_mat.sum(axis=0)/spectrum_mat.shape[0]
-    print(" finished! ")
+    
+    end_time = time.time()
+    print(" Task {:d} finished in {:.2f} s. \n".format(task_id, end_time-begin_time))
     return freq_grid.Grids(), dos_list
 
 
@@ -48,7 +55,7 @@ if "__main__":
     """
 
     # setting up params for grids
-    lattice_size = 63
+    lattice_size = 100
     freq_range = [-12.0, 12.0]
     freq_num = int(1e3)
 
@@ -56,7 +63,7 @@ if "__main__":
     # a large imaginary value tends to smooth out the effect of finite lattice size, thus leading to a smooth dos curve.
     # hence, as the imaginary valude decreases, the lattice size should be correspondingly increased 
     # to avoid the sharp-peak behaviour of results.
-    infinitesimal_imag = 0.1
+    infinitesimal_imag = 0.05
 
     # setting up model params
     # choice free lattice model as our 0th order results of pertubation theory.
@@ -75,8 +82,8 @@ if "__main__":
 
     corr_length_range = list(lattice_size * np.array([ 0.0, 1.0, 2.0, 3.0, 4.0, 8.0, 16.0, 24.0 ]))
     data_list = []
-    for corr_length in corr_length_range:
-        data_list.append(dos_run())
+    for id, corr_length in enumerate(corr_length_range):
+        data_list.append(dos_run(id))
     
     # plot the figure of dos
     plt.figure()
@@ -90,7 +97,7 @@ if "__main__":
         plt.plot(omega_list, dos_list, label="${\\xi/L}$ = "+str_corr_per_length)
     plt.xlabel("${\omega/4t}$", fontsize=13)
     plt.ylabel("${N(\omega)}$", fontsize=13)
-    plt.title("${L = 64 \\times 64}$,  ${\Delta_{0}/t = 0.2}$")
+    plt.title("${L = 100 \\times 100}$,  ${\Delta_{0}/t = 0.2}$")
     plt.tight_layout()
     plt.legend(fontsize=12)
     plt.savefig("./version_discrete/results/out.pdf")

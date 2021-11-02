@@ -1,4 +1,4 @@
-name: build
+name: DOS Solver
 
 on:
   push:
