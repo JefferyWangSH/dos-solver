@@ -48,8 +48,8 @@ if "__main__":
     """
 
     # setting up params for grids
-    lattice_size = 64
-    freq_range = [-15.0, 15.0]
+    lattice_size = 63
+    freq_range = [-12.0, 12.0]
     freq_num = int(1e3)
 
     # some comments for the strategy of choicing the imaginary value:
@@ -68,10 +68,12 @@ if "__main__":
     # band width w = 8t.
     hopping = 1.0
     fermi_surface = 0.0
-    static_gap = 1.0
+
+    # the gap should be sufficent low compared with hopping constant, such that the pertubation theory works.
+    static_gap = 0.2
     corr_length = float(0.1*lattice_size)
 
-    corr_length_range = list(lattice_size * np.array([ 0.0, 1.0, 2.0, 3.0, 4.0, 5.0 ]))
+    corr_length_range = list(lattice_size * np.array([ 0.0, 1.0, 2.0, 3.0, 4.0, 8.0, 16.0, 24.0 ]))
     data_list = []
     for corr_length in corr_length_range:
         data_list.append(dos_run())
@@ -81,12 +83,14 @@ if "__main__":
     plt.grid(linestyle='-.')
     for i in range(len(data_list)):
         omega_list, dos_list = data_list[i]
+        # frequencies omega are measured in unit of half band width of free theory (4t)
+        omega_list = omega_list/(4*hopping)
         corr_per_length = corr_length_range[i]/lattice_size
         str_corr_per_length = "{:.2f}".format(corr_per_length)
         plt.plot(omega_list, dos_list, label="${\\xi/L}$ = "+str_corr_per_length)
-    plt.xlabel("${\omega/t}$", fontsize=13)
+    plt.xlabel("${\omega/4t}$", fontsize=13)
     plt.ylabel("${N(\omega)}$", fontsize=13)
-    plt.title("${L = 64 \\times 64}$")
+    plt.title("${L = 64 \\times 64}$,  ${\Delta_{0}/t = 0.2}$")
     plt.tight_layout()
     plt.legend(fontsize=12)
     plt.savefig("./version_discrete/results/out.pdf")
