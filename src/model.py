@@ -15,7 +15,8 @@ class FreePropagator:
         self._hopping = 1.0
         self._chemical_potential = 1.0
         self._infinitesimal_imag = 1.0
-        self._arrary2d = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
+        self._arrary2d_particle = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
+        self._arrary2d_hole = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
     
     def SetModelParms(self, hopping, chemical_potential) -> None:
         self._hopping = hopping
@@ -29,9 +30,10 @@ class FreePropagator:
         # use broadcast property of numpy and accelate the creation of free propagator matrix
         tmp_ek = np.array(np.mat([ k.energy(self._hopping, self._chemical_potential) for k in self._momentum_grids.MomentumGrids() ]).transpose())
         tmp_omega = self._freq_grids.Grids() + self._infinitesimal_imag * 1.0j
+        self._arrary2d_particle = (tmp_omega - tmp_ek)**-1
         # the plus sign here indicates that,
-        # there exist a partical-hole symmetry in our model of phase-disordered supercondutivity.
-        self._arrary2d = (tmp_omega + tmp_ek)**-1
+        # there exist a particle-hole symmetry in our model of phase-disordered supercondutivity.
+        self._arrary2d_hole = (tmp_omega + tmp_ek)**-1
 
     def FrequencyDim(self) -> int:
         return self._freq_grids.GridsNum()
@@ -39,8 +41,11 @@ class FreePropagator:
     def MomentumDim(self) -> int:
         return self._momentum_grids.GridsNum()
 
-    def Mat(self):
-        return self._arrary2d
+    def ParticleMat(self):
+        return self._arrary2d_particle
+
+    def HoleMat(self):
+        return self._arrary2d_hole
 
     # TODO: reload [][] operator
 
@@ -72,9 +77,9 @@ class Kernel:
         tmp_py = np.array([ k.data()[1] for k in self._momentum_grids.MomentumGrids() ])
         tmp_kx = np.array(np.mat(tmp_px).transpose())
         tmp_ky = np.array(np.mat(tmp_py).transpose())
-        self._array2d = ( ((tmp_kx+tmp_px) - 2*np.pi*((tmp_kx+tmp_px+np.pi)//(2*np.pi)))**2 
-                        + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2 )**0.5
-        self._array2d = (1+(self._array2d*self._corr_length)**2)**-1.5 * np.pi/2 * (self._static_gap*self._corr_length)**2 / self.Dim()
+        self._array2d = ((tmp_kx+tmp_px) - 2*np.pi*((tmp_kx+tmp_px+np.pi)//(2*np.pi)))**2 \
+                      + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2
+        self._array2d = (1+self._array2d*(self._corr_length)**2)**-1.5 * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
     
     def Dim(self) -> int:
         return self._momentum_grids.GridsNum()
@@ -104,10 +109,10 @@ class GreenFunc:
 
 
     def ComputeSelfEnergy(self) -> None:
-        self._array2d_self_energy = self._kernel.Mat().dot(self._free_propagator.Mat())
+        self._array2d_self_energy = self._kernel.Mat().dot(self._free_propagator.HoleMat())
 
     def ComupteGreenFunc(self) -> None:
-        self._array2d_green_func = self._free_propagator.Mat() / (1-self._free_propagator.Mat()*self._array2d_self_energy)
+        self._array2d_green_func = self._free_propagator.ParticleMat() / (1-self._free_propagator.ParticleMat()*self._array2d_self_energy)
 
     def SelfEnergyMat(self):
         return self._array2d_self_energy

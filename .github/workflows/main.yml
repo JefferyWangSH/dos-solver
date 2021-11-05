@@ -26,8 +26,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install numpy
         pip install matplotlib
-        pip install scipy
     - name: Run DOS
       run: |
-        python version_discrete/src/main.py run_dos_discrete
-        python version_continuum/src/main.py run_dos_continuum
+        python src/main.py run_dos
