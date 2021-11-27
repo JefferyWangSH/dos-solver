@@ -30,7 +30,7 @@ class LatticeMomentum:
         assert(isinstance(hopping, float))
         assert(isinstance(chemical_potential, float))
         # dispersion relation of free lattice model
-        return -2 * hopping * np.sum(np.cos(self._latice_momentum)) - chemical_potential
+        return -2 * hopping * np.sum(np.cos(self._latice_momentum)) + chemical_potential
 
     """
         Confine the lattice momentum in the 1st BZ, and wrap at the boundaries due to PBC

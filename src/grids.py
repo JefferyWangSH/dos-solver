@@ -1,5 +1,5 @@
 import numpy as np
-from lattice_momentum import LatticeMomentum
+from momentum import LatticeMomentum
 
 
 class FrequencyGrids:

@@ -1,6 +1,5 @@
 import numpy as np
 from grids import FrequencyGrids, MomentumGrids
-from lattice_momentum import LatticeMomentum
 
 
 class FreePropagator:
@@ -52,8 +51,22 @@ class FreePropagator:
 
 class Kernel:
     """
-        Kernel between self energy and free Feynman propagator,
-        in case of phase-disordered superconductivity, corresponding to the dynamical Coopergap 
+        Kernel between self energy and free Feynman propagator.
+        In case of phase-disordered superconductivity, 
+        this corresponds to the fourier transformation of space correlation of Cooper gap. 
+        E.g. In two dimensional space
+            for exponential decayed correlation ~ exp( -r/(xi) )
+                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * ( 1 + (k+p)^2 (xi)^2 )^-1.5
+            which is 2d lorentz-type.
+
+            for gaussian-type decayed correlation ~ exp( -(r/(xi))^2 ) 
+                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * exp( -0.5 (k+p)^2 (xi)^2 )
+            which is also gaussian-type.
+        
+        In practice, different types of kernel does not have significant impact on the final results of density of states.
+        This is mainly because that :
+            When the characteristic length of the gap correlation is large enough so that the gap of d.o.s. exists,
+            the kernel degenerates to a delta function and it is the lattice momentum p = -k that dominates the physics of the system.
     """
     def __init__(self, momentum_grids):
         assert(isinstance(momentum_grids, MomentumGrids))
@@ -79,7 +92,13 @@ class Kernel:
         tmp_ky = np.array(np.mat(tmp_py).transpose())
         self._array2d = ((tmp_kx+tmp_px) - 2*np.pi*((tmp_kx+tmp_px+np.pi)//(2*np.pi)))**2 \
                       + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2
+
+        # lorentz correlation
         self._array2d = (1+self._array2d*(self._corr_length)**2)**-1.5 * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
+
+        # # gaussian correlation
+        # self._array2d = np.exp((-0.5*self._array2d*(self._corr_length)**2)) * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
+
     
     def Dim(self) -> int:
         return self._momentum_grids.GridsNum()
@@ -95,7 +114,7 @@ class Kernel:
 class GreenFunc:
     """
         Retarded Green's function of interacting system, 
-        evaluated with pertubation theroy by computing self energy correction.
+        evaluated with pertubation theroy by computing the self energy correction.
     """
     def __init__(self, kernel, free_propagator):
         assert(isinstance(kernel, Kernel))

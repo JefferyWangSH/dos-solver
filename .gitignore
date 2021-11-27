@@ -130,4 +130,3 @@ dmypy.json
 
 # personal folder
 .idea/*
-__pycache__/*
