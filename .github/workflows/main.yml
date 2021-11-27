@@ -28,4 +28,4 @@ jobs:
         pip install matplotlib
     - name: Run DOS
       run: |
-        python src/main.py run_dos
+        python src/dos_main.py run_dos
