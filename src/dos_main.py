@@ -126,11 +126,10 @@ if "__main__":
     plt.show()
 
 
-    """
-        testing codes
-    """
+    # """
+    #     benchmark between different kernels
+    # """
 
-    # # benchmark between different kernels
     # fmt_path = "./results/{:s}/L100Cor0.10.dat"
     # dos_data_lorentz = read_dos(fmt_path.format("lorentz"))
     # dos_data_gaussian = read_dos(fmt_path.format("gaussian"))
@@ -144,6 +143,10 @@ if "__main__":
     # plt.tight_layout()
     # plt.show()
 
+
+    # """
+    #     testing codes
+    # """
 
     # # record cpu time
     # time_begin = time.time()
