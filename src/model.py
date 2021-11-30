@@ -1,4 +1,5 @@
 import numpy as np
+from dos_params import DosParams
 from grids import FrequencyGrids, MomentumGrids
 
 
@@ -11,28 +12,24 @@ class FreePropagator:
         assert(isinstance(momentum_grids, MomentumGrids))
         self._freq_grids = frequency_grids
         self._momentum_grids = momentum_grids
-        self._hopping = 1.0
-        self._chemical_potential = 1.0
-        self._infinitesimal_imag = 1.0
         self._arrary2d_particle = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
         self._arrary2d_hole = np.zeros((self.MomentumDim(), self.FrequencyDim()), dtype=complex)
-    
-    def SetModelParms(self, hopping, chemical_potential) -> None:
-        self._hopping = hopping
-        self._chemical_potential = chemical_potential
 
-    def SetInfinitesimalImag(self, infinitesimal_imag) -> None:
-        assert(isinstance(infinitesimal_imag, float))
-        self._infinitesimal_imag = infinitesimal_imag
+    def SetFreeBand(self, free_band_func) -> None:
+        self._free_band = free_band_func
 
-    def init(self):
+    def compute(self, dos_params):
+        assert(isinstance(dos_params, DosParams))
         # use broadcast property of numpy and accelate the creation of free propagator matrix
-        tmp_ek = np.array(np.mat([ k.energy(self._hopping, self._chemical_potential) for k in self._momentum_grids.MomentumGrids() ]).transpose())
-        tmp_omega = self._freq_grids.Grids() + self._infinitesimal_imag * 1.0j
-        self._arrary2d_particle = (tmp_omega - tmp_ek)**-1
+        kx_trans = np.array(np.mat([ k[0] for k in self._momentum_grids.MomentumGrids() ]).transpose())
+        ky_trans = np.array(np.mat([ k[1] for k in self._momentum_grids.MomentumGrids() ]).transpose())
+        tmp_ek = self._free_band(kx_trans, ky_trans, dos_params)
+        tmp_omega = self._freq_grids.Grids() + dos_params.infinitesimal_imag * 1.0j
+        
         # the plus sign here indicates that,
         # there exist a particle-hole symmetry in our model of phase-disordered supercondutivity.
         self._arrary2d_hole = (tmp_omega + tmp_ek)**-1
+        self._arrary2d_particle = (tmp_omega - tmp_ek)**-1
 
     def FrequencyDim(self) -> int:
         return self._freq_grids.GridsNum()
@@ -52,61 +49,27 @@ class FreePropagator:
 class Kernel:
     """
         Kernel between self energy and free Feynman propagator.
-        In case of phase-disordered superconductivity, 
-        this corresponds to the fourier transformation of space correlation of Cooper gap. 
-        E.g. In two dimensional space
-            for exponential decayed correlation ~ exp( -r/(xi) )
-                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * ( 1 + (k+p)^2 (xi)^2 )^-1.5
-            which is 2d lorentz-type.
-
-            for gaussian-type decayed correlation ~ exp( -(r/(xi))^2 ) 
-                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * exp( -0.5 (k+p)^2 (xi)^2 )
-            which is also gaussian-type.
-        
-        In practice, different types of kernel does not have significant impact on the final results of density of states.
-        This is mainly because that :
-            When the characteristic length of the gap correlation is large enough so that the gap of d.o.s. exists,
-            the kernel degenerates to a delta function and it is the lattice momentum p = -k that dominates the physics of the system.
     """
-    def __init__(self, momentum_grids, kernel_type):
+    def __init__(self, momentum_grids):
         assert(isinstance(momentum_grids, MomentumGrids))
         self._momentum_grids = momentum_grids
-        self._static_gap = 1.0
-        self._corr_length = 1.0
         self._array2d = np.zeros((self.Dim(), self.Dim()))
-        self._kernel_type = kernel_type
 
-    def SetDisorderParams(self, static_gap, corr_length) -> None:
-        assert(isinstance(static_gap, float))
-        assert(isinstance(corr_length, float))
-        self._static_gap = static_gap
-        self._corr_length = corr_length
+    def SetKernel(self, kernel_func) -> None:
+        self._kernel = kernel_func
 
     # this step, the generation of kernel, should be the most computational expensive part of the program,
     # in case of large size of lattice.
-    def init(self) -> None:
+    def compute(self, dos_params) -> None:
+        assert(isinstance(dos_params, DosParams))
         # accelarate the fabrication of kernel by using operations between arrays.
         # again, the broadcast property of numpy arrays is used.
         tmp_px = np.array([ k.data()[0] for k in self._momentum_grids.MomentumGrids() ])
         tmp_py = np.array([ k.data()[1] for k in self._momentum_grids.MomentumGrids() ])
         tmp_kx = np.array(np.mat(tmp_px).transpose())
         tmp_ky = np.array(np.mat(tmp_py).transpose())
-        self._array2d = ((tmp_kx+tmp_px) - 2*np.pi*((tmp_kx+tmp_px+np.pi)//(2*np.pi)))**2 \
-                      + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2
+        self._array2d = self._kernel(tmp_kx, tmp_ky, tmp_px, tmp_py, dos_params)
 
-        # lorentz correlation
-        if self._kernel_type == "lorentz":
-            self._array2d = (1+self._array2d*(self._corr_length)**2)**-1.5 * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
-        
-        # gaussian correlation
-        elif self._kernel_type == "gaussian":
-            self._array2d = np.exp((-0.5*self._array2d*(self._corr_length)**2)) * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
-        
-        else:
-            print(" Unknown kernel type ! ")
-            exit(1)
-
-    
     def Dim(self) -> int:
         return self._momentum_grids.GridsNum()
 
@@ -121,7 +84,7 @@ class Kernel:
 class GreenFunc:
     """
         Retarded Green's function of interacting system, 
-        evaluated with pertubation theroy by computing the self energy correction.
+        evaluated by computing the self energy correction using pertubation theroy 
     """
     def __init__(self, kernel, free_propagator):
         assert(isinstance(kernel, Kernel))

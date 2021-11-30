@@ -1,25 +1,12 @@
 import time
 import numpy as np
+from dos_params import DosParams
 from grids import FrequencyGrids, MomentumGrids
 from model import FreePropagator, Kernel, GreenFunc
 
 
-class DosParams:
-    def __init__(self) -> None:
-        self.lattice_size = 100
-        self.freq_range = [-6.0, 6.0]
-        self.freq_num = int(1e3)
-        self.infinitesimal_imag = 0.08
-
-        self.hopping = 1.0
-        self.fermi_surface = 0.0
-        self.static_gap = 0.1
-        self.corr_length = float(0.1*self.lattice_size)
-
-
 class DosSolver:
     def __init__(self) -> None:
-        self._kernel_type = "gaussian"       # default kernel type
         self._freq_list = ()
         self._dos_list = ()
         self._timer = 0.0
@@ -29,11 +16,11 @@ class DosSolver:
         self._dos_list = ()
         self._timer = 0.0
 
-    def setKernel(self, kernel_type) -> None:
-        self._kernel_type = kernel_type
+    def setKernel(self, kernel_func) -> None:
+        self._kernel = kernel_func
 
-    def KernelType(self) -> str:
-        return self._kernel_type
+    def setFreeBand(self, free_band_func) -> None:
+        self._free_band = free_band_func
 
     def Data(self):
         return zip(self._freq_list, self._dos_list)
@@ -54,14 +41,13 @@ class DosSolver:
 
         # initialize free propagator
         free_propagator = FreePropagator(freq_grid, k_grid)
-        free_propagator.SetModelParms(dos_params.hopping, dos_params.fermi_surface)
-        free_propagator.SetInfinitesimalImag(dos_params.infinitesimal_imag)
-        free_propagator.init()
+        free_propagator.SetFreeBand(self._free_band)
+        free_propagator.compute(dos_params = dos_params)
 
         # generate kernel
-        kernel = Kernel(momentum_grids = k_grid, kernel_type = self._kernel_type)
-        kernel.SetDisorderParams(dos_params.static_gap, dos_params.corr_length)
-        kernel.init()
+        kernel = Kernel(momentum_grids = k_grid)
+        kernel.SetKernel(self._kernel)
+        kernel.compute(dos_params = dos_params)
 
         # compute self energy and green's function
         green_func = GreenFunc(kernel = kernel, free_propagator = free_propagator)
@@ -79,4 +65,5 @@ class DosSolver:
         self._timer = end_time - begin_time
         self._freq_list = freq_grid.Grids()
         self._dos_list = dos_list
-
+        
+        

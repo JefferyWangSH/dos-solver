@@ -1,10 +1,57 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from dos_solver import DosParams, DosSolver
-from grids import FrequencyGrids, MomentumGrids
-from model import FreePropagator, Kernel, GreenFunc
+from dos_params import DosParams
+from dos_solver import DosSolver
 from dos_io import write_dos, read_dos
+
+
+def TightBindingModel(kx, ky, params):
+    """
+        choice free lattice model as our 0th order results of pertubation theory.
+        considering the tight-binding model, the motion of electrons is described 
+        by the hopping term between the nearest-neighbour (to the lowest order) sites.
+        the dispersion relation reads:
+            E = - 2t ( cos(kx) + cos(ky) ) - mu
+        where k = (kx, ky) is discrete lattice momentum, t is hopping constant and mu being the chemical potential (fermi surface).
+        band width w = 8t.
+    """
+    assert(isinstance(params, DosParams))
+    return -2*params.hopping * ( np.cos(kx) + np.cos(ky) ) + params.fermi_surface
+
+
+def KernelDisorderSC(kx, ky, px, py, params):
+    """
+        This subroutine defines the kernel between self energy and free Feynman propagator.
+        In case of phase-disordered superconductivity, 
+        this corresponds to the fourier transformation of space correlation of Cooper gap. 
+        E.g. In two dimensional space
+            for exponential decayed correlation ~ exp( -r/(xi) )
+                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * ( 1 + (k+p)^2 (xi)^2 )^-1.5
+            which is 2d lorentz-type.
+
+            for gaussian-type decayed correlation ~ exp( -(r/(xi))^2 ) 
+                Kernel = 2 pi * Delta0^2 * ( (xi)^2 / V ) * exp( -0.5 (k+p)^2 (xi)^2 )
+            which is also gaussian-type.
+        
+        In practice, different types of kernel does not have significant impact on the final results of density of states.
+        This is mainly because that :
+            When the characteristic length of the gap correlation is large enough so that the gap of d.o.s. exists,
+            the kernel degenerates to a delta function and it is the lattice momentum p = -k that dominates the physics of the system.
+    """
+    assert(isinstance(params, DosParams))
+
+    # Confine the lattice momentum in the 1st BZ, and wrap at the boundaries due to PBC
+    AddAndWrap = lambda k, p: ((k+p) - 2*np.pi*((k+p+np.pi)//(2*np.pi)))
+    
+    # Gaussian type kernel
+    return np.exp(-0.5*((AddAndWrap(kx, px)**2 + AddAndWrap(ky, py)**2)*params.corr_length**2)) \
+           * 2*np.pi * (params.static_gap * params.corr_length / params.lattice_size)**2
+
+    # # Lorentz type kernel
+    # return ( 1+(AddAndWrap(kx, px)**2 + AddAndWrap(ky, py)**2)*(params.corr_length)**2 )**-1.5 \
+    #        * 2*np.pi * (params.static_gap * params.corr_length / params.lattice_size)**2
+
 
 
 if "__main__":
@@ -27,13 +74,6 @@ if "__main__":
     params.infinitesimal_imag = 0.08
 
     # setting up model params
-    # choice free lattice model as our 0th order results of pertubation theory.
-    # for a free lattice model, the motion of electrons is described 
-    # by the hopping term between the nearest-neighbour (to the lowest order) sites.
-    # the dispersion relation reads:
-    #     E = - 2t ( cos(kx) + cos(ky) ) - mu
-    # where k = (kx, ky) is discrete lattice momentum, t is hopping constant and mu being the chemical potential (fermi surface).
-    # band width w = 8t.
     params.hopping = 1.0
     params.fermi_surface = 0.0
 
@@ -46,7 +86,8 @@ if "__main__":
 
     # do the calculation
     solver = DosSolver()
-    solver.setKernel("gaussian")
+    solver.setFreeBand(free_band_func = TightBindingModel)
+    solver.setKernel(kernel_func = KernelDisorderSC)
 
     data_list = []
     for corr_length in corr_length_range:
@@ -58,7 +99,7 @@ if "__main__":
         print(" Finished in {:.2f} s. \n".format(solver.Timer()))
 
         # file output
-        out_file_path = "./results/{:s}/L{:d}Cor{:.2f}.dat".format(solver.KernelType(), params.lattice_size, params.corr_length/params.lattice_size)
+        out_file_path = "./results/gaussian/L{:d}Cor{:.2f}.dat".format(params.lattice_size, params.corr_length/params.lattice_size)
         write_dos(solver.Data(), out_file_path)
 
 

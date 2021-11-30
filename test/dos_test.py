@@ -3,24 +3,40 @@ from matplotlib import pyplot as plt
 
 # import sys
 # sys.path.append("src")
-# from dos_solver import DosParams
 # from grids import FrequencyGrids, MomentumGrids
 # from model import FreePropagator, Kernel, GreenFunc
 # from dos_io import write_dos, read_dos
 
-# def free_propagator_hole(k, omega):
-#     """
-#         free feynman propagator of hole excitation
-#     """
-#     omega_complex = omega + infinitesimal_imag*1.0j
-#     return 1/(omega_complex + k**2/(2*mass) + fermi_surface )
+def free_propagator_hole(k, omega):
+    """
+        free feynman propagator of hole excitation
+    """
+    omega_complex = omega + infinitesimal_imag*1.0j
+    return 1/(omega_complex + k**2/(2*mass) + fermi_surface )
 
 
-# def self_energy(k, omega):
-#     """
-#         functional form of the approximated self-energy correction.
-#     """
-#     return 2*np.pi*static_gap**2*free_propagator_hole(k, omega) * (1 - free_propagator_hole(k, omega)/(2*mass*corr_length**2))
+def self_energy(k, omega):
+    """
+        functional form of the approximated self-energy correction.
+    """
+    return 2*np.pi*static_gap**2 * free_propagator_hole(k, omega) * (1 - free_propagator_hole(k, omega)/(2*mass*corr_length**2))
+
+
+def calculate_dos_exact():
+    # generate grids for momentums of 2d
+    k_grids_1d = np.linspace(-k_cutoff, k_cutoff, k_num)
+    px_grids_2d = np.array([px for px in k_grids_1d for py in k_grids_1d])
+    py_grids_2d = np.array([py for px in k_grids_1d for py in k_grids_1d])
+    kx_grids_2d = np.array(np.mat(px_grids_2d).transpose())
+    ky_grids_2d = np.array(np.mat(py_grids_2d).transpose())
+    
+    # generate kernel (gaussian-type)
+    kernel = (kx_grids_2d+px_grids_2d)**2 + (ky_grids_2d+py_grids_2d)**2
+
+    print(kernel)
+
+def calculate_dos_approximate():
+    pass
 
 
 
@@ -40,30 +56,34 @@ if "__main__":
     static_gap = 0.1
     corr_length = 10.0
 
-    # generate grids
-    k_grids = np.linspace(0.0, k_cutoff, k_num)
-    freq_grids = np.linspace(-freq_cutoff, freq_cutoff, freq_num)
+    calculate_dos_exact()
 
-    # generate feynman propagators: for both particle and hole
-    freq_grids_complex = freq_grids + infinitesimal_imag*1.0j
-    k_grids_trans = np.array(np.mat(k_grids).transpose())
-    dispersion_trans = k_grids_trans**2/(2*mass) + fermi_surface
-    free_propagator_particle = (freq_grids_complex - dispersion_trans)**-1
-    free_propagator_hole = (freq_grids_complex + dispersion_trans)**-1
 
-    # generate matrix of self-energy
-    self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
 
-    # generate matrix of green's function
-    green_function = free_propagator_particle / (1-free_propagator_particle*self_energy)
+    # # generate grids
+    # k_grids = np.linspace(0.0, k_cutoff, k_num)
+    # freq_grids = np.linspace(-freq_cutoff, freq_cutoff, freq_num)
 
-    # generate matrix of spectrum function
-    spectrum = -2 * np.imag(green_function)
+    # # generate feynman propagators: for both particle and hole
+    # freq_grids_complex = freq_grids + infinitesimal_imag*1.0j
+    # k_grids_trans = np.array(np.mat(k_grids).transpose())
+    # dispersion_trans = k_grids_trans**2/(2*mass) + fermi_surface
+    # free_propagator_particle = (freq_grids_complex - dispersion_trans)**-1
+    # free_propagator_hole = (freq_grids_complex + dispersion_trans)**-1
 
-    # compress to obatin density of state
-    # TODO: check it out 
-    dos_list = (k_grids*spectrum).sum(axis=0)/spectrum.shape[0]
+    # # generate matrix of self-energy
+    # self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
 
-    plt.figure()
-    plt.plot(freq_grids, dos_list)
-    plt.show()
+    # # generate matrix of green's function
+    # green_function = free_propagator_particle / (1-free_propagator_particle*self_energy)
+
+    # # generate matrix of spectrum function
+    # spectrum = -2 * np.imag(green_function)
+
+    # # compress to obatin density of state
+    # # TODO: check it out 
+    # dos_list = (k_grids*spectrum).sum(axis=0)/spectrum.shape[0]
+
+    # plt.figure()
+    # plt.plot(freq_grids, dos_list)
+    # plt.show()
