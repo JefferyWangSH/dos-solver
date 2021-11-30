@@ -13,19 +13,40 @@ class DosParams:
 
         self.hopping = 1.0
         self.fermi_surface = 0.0
-
         self.static_gap = 0.1
         self.corr_length = float(0.1*self.lattice_size)
 
 
 class DosSolver:
     def __init__(self) -> None:
-        pass
+        self._kernel_type = "gaussian"       # default kernel type
+        self._freq_list = ()
+        self._dos_list = ()
+        self._timer = 0.0
     
+    def clear(self) -> None:
+        self._freq_list = ()
+        self._dos_list = ()
+        self._timer = 0.0
+
+    def setKernel(self, kernel_type) -> None:
+        self._kernel_type = kernel_type
+
+    def KernelType(self) -> str:
+        return self._kernel_type
+
+    def Data(self):
+        return zip(self._freq_list, self._dos_list)
+
+    def Timer(self) -> float:
+        return self._timer
+
     def run(self, dos_params) -> None:
         assert(isinstance(dos_params, DosParams))
+
         # record cpu time
         begin_time = time.time()
+        self.clear()
 
         # initialize grids
         freq_grid = FrequencyGrids(dos_params.freq_num, dos_params.freq_range)
@@ -38,7 +59,7 @@ class DosSolver:
         free_propagator.init()
 
         # generate kernel
-        kernel = Kernel(momentum_grids = k_grid)
+        kernel = Kernel(momentum_grids = k_grid, kernel_type = self._kernel_type)
         kernel.SetDisorderParams(dos_params.static_gap, dos_params.corr_length)
         kernel.init()
 
@@ -52,10 +73,10 @@ class DosSolver:
 
         # collecting density of states
         dos_list = spectrum_mat.sum(axis=0)/spectrum_mat.shape[0]
-        
         end_time = time.time()
-        print(" Finished in {:.2f} s. \n".format(end_time-begin_time))
 
         # save the results
-        self.data = zip(freq_grid.Grids(), dos_list)
+        self._timer = end_time - begin_time
+        self._freq_list = freq_grid.Grids()
+        self._dos_list = dos_list
 

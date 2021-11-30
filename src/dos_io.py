@@ -4,14 +4,13 @@ import numpy as np
 """
     subroutine for the file output of calculated dos data
 """
-def write_dos(freq_list, dos_list, output_file_name):
-    assert(len(freq_list) == len(dos_list))
+def write_dos(data_list, output_file_name):
     assert(isinstance(output_file_name, str))
     
     # file output of data
     with open(output_file_name, mode="w") as outfile:
-        for data in zip(freq_list, dos_list):
-            outfile.write("{:<25.12f}{:<25.12f}\n".format(data[0], data[1]))
+        for freq, dos in data_list:
+            outfile.write("{:<25.12f}{:<25.12f}\n".format(freq, dos))
     outfile.close()
 
 
@@ -31,5 +30,5 @@ def read_dos(input_file_name):
                 freq_list.append(freq)
                 dos_list.append(dos)
     infile.close()
-    return np.array(freq_list), np.array(dos_list)
+    return zip(freq_list, dos_list)
    

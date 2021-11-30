@@ -1,50 +1,10 @@
-import time, datetime
 import numpy as np
 from matplotlib import pyplot as plt
 
+from dos_solver import DosParams, DosSolver
 from grids import FrequencyGrids, MomentumGrids
 from model import FreePropagator, Kernel, GreenFunc
 from dos_io import write_dos, read_dos
-
-
-"""
-    subroutine for the evaluation of density of states
-"""
-def dos_run(task_id):
-    assert(isinstance(task_id, int))
-    
-    # record cpu time
-    begin_time = time.time()
-
-    # initialize grids
-    freq_grid = FrequencyGrids(num_of_grids = freq_num, freqency_range = freq_range)
-    k_grid = MomentumGrids(num_of_grids_per_length = lattice_size)
-
-    # initialize free propagator
-    free_propagator = FreePropagator(freq_grid, k_grid)
-    free_propagator.SetModelParms(hopping = hopping, chemical_potential = fermi_surface)
-    free_propagator.SetInfinitesimalImag(infinitesimal_imag = infinitesimal_imag)
-    free_propagator.init()
-
-    # generate kernel
-    kernel = Kernel(momentum_grids = k_grid)
-    kernel.SetDisorderParams(static_gap = static_gap, corr_length = corr_length)
-    kernel.init()
-
-    # compute self energy and green's function
-    green_func = GreenFunc(kernel = kernel, free_propagator = free_propagator)
-    green_func.ComputeSelfEnergy()
-    green_func.ComupteGreenFunc()
-
-    # collecting spectrum A(k,omega)
-    spectrum_mat = -2 * np.imag(green_func.GreenFuncMat())
-
-    # collecting density of states
-    dos_list = spectrum_mat.sum(axis=0)/spectrum_mat.shape[0]
-    
-    end_time = time.time()
-    print(" Task {:d} finished in {:.2f} s. \n".format(task_id, end_time-begin_time))
-    return freq_grid.Grids(), dos_list
 
 
 if "__main__":
@@ -52,16 +12,19 @@ if "__main__":
         The main program
     """
 
+    # params for dos calculation
+    params = DosParams()
+
     # setting up params for grids
-    lattice_size = 100
-    freq_range = [-6.0, 6.0]
-    freq_num = int(1e3)
+    params.lattice_size = 100
+    params.freq_range = [-6.0, 6.0]
+    params.freq_num = int(1e3)
 
     # some comments for the strategy of choicing the imaginary value:
     # a large imaginary value tends to smooth out the effect of finite lattice size, thus leading to a smooth dos curve.
     # hence, as the imaginary valude decreases, the lattice size should be correspondingly increased 
     # to avoid the sharp-peak behaviour of results.
-    infinitesimal_imag = 0.08
+    params.infinitesimal_imag = 0.08
 
     # setting up model params
     # choice free lattice model as our 0th order results of pertubation theory.
@@ -71,50 +34,60 @@ if "__main__":
     #     E = - 2t ( cos(kx) + cos(ky) ) - mu
     # where k = (kx, ky) is discrete lattice momentum, t is hopping constant and mu being the chemical potential (fermi surface).
     # band width w = 8t.
-    hopping = 1.0
-    fermi_surface = 0.0
+    params.hopping = 1.0
+    params.fermi_surface = 0.0
 
     # the gap should be sufficent low compared with hopping constant, such that the pertubation theory works.
-    static_gap = 0.1
-    corr_length = float(0.1*lattice_size)
-    corr_length_range = list(lattice_size * np.array([ 0.0, 0.05, 0.1, 1.0, 2.0 ]))
+    params.static_gap = 0.1
+    params.corr_length = float(0.1*params.lattice_size)
+    
+    # scan range of correlation
+    corr_length_range = list(params.lattice_size * np.array([ 0.0, 0.05, 0.1, 1.0, 2.0 ]))
 
-    # do calculation
+    # do the calculation
+    solver = DosSolver()
+    solver.setKernel("gaussian")
+
     data_list = []
-    for id, corr_length in enumerate(corr_length_range):
-        # do the calculation and save calculating results
-        freq, dos = dos_run(id)             
-        data_list.append((freq, dos))       
+    for corr_length in corr_length_range:
+        params.corr_length = corr_length
+
+        # run with given params
+        solver.run(params)
+        data_list.append(solver.Data())
+        print(" Finished in {:.2f} s. \n".format(solver.Timer()))
 
         # file output
-        out_file_path = "./results/lorentz/L{:d}Cor{:.2f}.dat".format(lattice_size, corr_length/lattice_size)
-        write_dos(freq, dos, out_file_path)
-    
+        out_file_path = "./results/{:s}/L{:d}Cor{:.2f}.dat".format(solver.KernelType(), params.lattice_size, params.corr_length/params.lattice_size)
+        write_dos(solver.Data(), out_file_path)
+
 
     # # read calculation data from file
     # # for benchmark usage
     # data_list = []
     # for id, corr_length in enumerate(corr_length_range):
-    #     in_file_path = "./results/gaussian/L{:d}Cor{:.2f}.dat".format(lattice_size, corr_length/lattice_size)
+    #     in_file_path = "./results/lorentz/L{:d}Cor{:.2f}.dat".format(params.lattice_size, corr_length/params.lattice_size)
     #     data_list.append(read_dos(in_file_path))
-    
+
+
     # plot dos figure
     plt.figure()
     plt.grid(linestyle='-.')
 
     for i, data in enumerate(data_list):
-        omega_list, dos_list = data
-        
-        # frequencies are measured in unit of half band width of free theory (4t)
-        omega_list = omega_list/(4*hopping)
-        corr_per_length = corr_length_range[i]/lattice_size
+        omega_list, dos_list = zip(*data)
+        omega_list = np.array(omega_list) / (4*params.hopping)
+        dos_list = np.array(dos_list)
+
+        # with frequencies measured in unit of half band width of free theory (4t)
+        corr_per_length = corr_length_range[i] / params.lattice_size
         str_corr_per_length = "{:.2f}".format(corr_per_length)
         plt.plot(omega_list, dos_list, label="${\\xi/L}$ = "+str_corr_per_length)
 
     # set up figure style and legends
     x_label = "${\omega/4t}$"
     y_label = "${N(\omega)}$"
-    title = "${L = %d \\times %d}$,  ${\Delta_{0}/t = %.1f}$" % (lattice_size, lattice_size, static_gap/hopping)
+    title = "${L = %d \\times %d}$,  ${\Delta_{0}/t = %.1f}$" % (params.lattice_size, params.lattice_size, params.static_gap/params.hopping)
     font = {'family' : 'Times New Roman', 'weight' : 'bold', 'size' : 13, }
     
     plt.xlabel(x_label, font)
@@ -126,27 +99,27 @@ if "__main__":
     plt.show()
 
 
-    # """
-    #     benchmark between different kernels
-    # """
+    """
+        benchmark between different kernels
+    """
 
     # fmt_path = "./results/{:s}/L100Cor0.10.dat"
-    # dos_data_lorentz = read_dos(fmt_path.format("lorentz"))
-    # dos_data_gaussian = read_dos(fmt_path.format("gaussian"))
+    # freq_lorentz, dos_lorentz = zip(*read_dos(fmt_path.format("lorentz")))
+    # freq_gaussian, dos_gaussian = zip(*read_dos(fmt_path.format("gaussian")))
 
     # plt.figure()
     # plt.grid(linestyle='-.')
-    # plt.plot(dos_data_lorentz[0], dos_data_lorentz[1], label="Lorentz")
-    # plt.plot(dos_data_gaussian[0], dos_data_gaussian[1], label="Gaussian")
+    # plt.plot(freq_lorentz, dos_lorentz, label="Lorentz")
+    # plt.plot(freq_gaussian, dos_gaussian, label="Gaussian")
     # plt.title("benchmark")
     # plt.legend(fontsize=12)
     # plt.tight_layout()
     # plt.show()
 
 
-    # """
-    #     testing codes
-    # """
+    """
+        testing codes
+    """
 
     # # record cpu time
     # time_begin = time.time()

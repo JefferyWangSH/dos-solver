@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 
 # import sys
 # sys.path.append("src")
+# from dos_solver import DosParams
 # from grids import FrequencyGrids, MomentumGrids
 # from model import FreePropagator, Kernel, GreenFunc
 # from dos_io import write_dos, read_dos
@@ -51,7 +52,7 @@ if "__main__":
     free_propagator_hole = (freq_grids_complex + dispersion_trans)**-1
 
     # generate matrix of self-energy
-    self_energy = 2*np.pi*static_gap**2*free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
+    self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
 
     # generate matrix of green's function
     green_function = free_propagator_particle / (1-free_propagator_particle*self_energy)

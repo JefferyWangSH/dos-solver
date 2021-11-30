@@ -68,12 +68,13 @@ class Kernel:
             When the characteristic length of the gap correlation is large enough so that the gap of d.o.s. exists,
             the kernel degenerates to a delta function and it is the lattice momentum p = -k that dominates the physics of the system.
     """
-    def __init__(self, momentum_grids):
+    def __init__(self, momentum_grids, kernel_type):
         assert(isinstance(momentum_grids, MomentumGrids))
         self._momentum_grids = momentum_grids
         self._static_gap = 1.0
         self._corr_length = 1.0
         self._array2d = np.zeros((self.Dim(), self.Dim()))
+        self._kernel_type = kernel_type
 
     def SetDisorderParams(self, static_gap, corr_length) -> None:
         assert(isinstance(static_gap, float))
@@ -94,10 +95,16 @@ class Kernel:
                       + ((tmp_ky+tmp_py) - 2*np.pi*((tmp_ky+tmp_py+np.pi)//(2*np.pi)))**2
 
         # lorentz correlation
-        self._array2d = (1+self._array2d*(self._corr_length)**2)**-1.5 * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
-
-        # # gaussian correlation
-        # self._array2d = np.exp((-0.5*self._array2d*(self._corr_length)**2)) * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
+        if self._kernel_type == "lorentz":
+            self._array2d = (1+self._array2d*(self._corr_length)**2)**-1.5 * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
+        
+        # gaussian correlation
+        elif self._kernel_type == "gaussian":
+            self._array2d = np.exp((-0.5*self._array2d*(self._corr_length)**2)) * 2*np.pi * (self._static_gap*self._corr_length)**2 / self.Dim()
+        
+        else:
+            print(" Unknown kernel type ! ")
+            exit(1)
 
     
     def Dim(self) -> int:
