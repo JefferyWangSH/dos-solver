@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import sys
 
 
 def calculate_dos_exact():
@@ -30,20 +31,30 @@ def calculate_dos_exact():
 
     # compress to obatin density of state
     dos_list = spectrum.sum(axis=0)/spectrum.shape[0]
+
+    # # check the memory
+    # print(sys.getsizeof(kernel))
+    # print(sys.getsizeof(free_propagator_hole))
+    # print(sys.getsizeof(free_propagator_particle))
+    # print(sys.getsizeof(self_energy))
+    # print(sys.getsizeof(green_func))
+    # print(sys.getsizeof(spectrum))
+
     return freq_grids, dos_list
 
 
 def calculate_dos_approximate():
-    # generate grids
-    k_grids = np.linspace(0.0, k_cutoff, k_num)
+    # generate grids for momentums of 2d
+    k_grids_1d = np.linspace(-k_cutoff, k_cutoff, k_num)
+    kx_grids_2d = np.array(np.mat([px for px in k_grids_1d for py in k_grids_1d]).transpose())
+    ky_grids_2d = np.array(np.mat([py for px in k_grids_1d for py in k_grids_1d]).transpose())
     freq_grids = np.linspace(-freq_cutoff, freq_cutoff, freq_num)
 
     # generate feynman propagators: for both particle and hole
+    ek_grids = (kx_grids_2d**2+ky_grids_2d**2)/(2*mass) + fermi_surface
     freq_grids_complex = freq_grids + infinitesimal_imag*1.0j
-    k_grids_trans = np.array(np.mat(k_grids).transpose())
-    dispersion_trans = k_grids_trans**2/(2*mass) + fermi_surface
-    free_propagator_particle = (freq_grids_complex - dispersion_trans)**-1
-    free_propagator_hole = (freq_grids_complex + dispersion_trans)**-1
+    free_propagator_particle = (freq_grids_complex - ek_grids)**-1
+    free_propagator_hole = (freq_grids_complex + ek_grids)**-1
 
     # generate approximated self-energy
     self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
@@ -55,9 +66,33 @@ def calculate_dos_approximate():
     spectrum = -2 * np.imag(green_function)
 
     # compress to obatin density of state
-    # TODO: check it out 
-    dos_list = (np.array(np.mat(k_grids).transpose())*spectrum).sum(axis=0)/spectrum.shape[0]
+    dos_list = (spectrum).sum(axis=0)/spectrum.shape[0]
     return freq_grids, dos_list
+
+    # # generate grids
+    # k_grids = np.linspace(0.0, k_cutoff, k_num)
+    # freq_grids = np.linspace(-freq_cutoff, freq_cutoff, freq_num)
+
+    # # generate feynman propagators: for both particle and hole
+    # freq_grids_complex = freq_grids + infinitesimal_imag*1.0j
+    # k_grids_trans = np.array(np.mat(k_grids).transpose())
+    # dispersion_trans = k_grids_trans**2/(2*mass) + fermi_surface
+    # free_propagator_particle = (freq_grids_complex - dispersion_trans)**-1
+    # free_propagator_hole = (freq_grids_complex + dispersion_trans)**-1
+
+    # # generate approximated self-energy
+    # self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
+
+    # # compute green's function
+    # green_function = free_propagator_particle / (1-free_propagator_particle*self_energy)
+
+    # # allocate spectrum function
+    # spectrum = -2 * np.imag(green_function)
+
+    # # compress to obatin density of state
+    # # TODO: check it out 
+    # dos_list = (k_grids_trans*spectrum).sum(axis=0)/spectrum.shape[0]
+    # return freq_grids, dos_list
 
 
 
@@ -68,14 +103,14 @@ if "__main__":
     
     # set up model params
     freq_cutoff, k_cutoff = 8.0, 6.0
-    freq_num, k_num = int(1e3), int(1e2)
+    freq_num, k_num = int(1e3), 100
     infinitesimal_imag = 0.3
     
     # continuum model with dispersion relation E = p^2/(2m) - mu
     mass = 1.0
     fermi_surface = -5.0
     static_gap = 0.1
-    corr_length = 10.0
+    corr_length = 20.0
 
     # exact, relatively speaking, results from calculation
     freq_exact, dos_exact = calculate_dos_exact()
@@ -93,5 +128,7 @@ if "__main__":
     plt.ylabel("${N(\omega)}$", fontsize=13)
     plt.legend()
     plt.tight_layout()
-    plt.show()
     plt.savefig("./test/compare.pdf", dpi=200)
+    plt.show()
+    
+    
