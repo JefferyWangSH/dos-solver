@@ -57,7 +57,8 @@ def calculate_dos_approximate():
     free_propagator_hole = (freq_grids_complex + ek_grids)**-1
 
     # generate approximated self-energy
-    self_energy = 2*np.pi*static_gap**2 * free_propagator_hole * (1 - free_propagator_hole/(2*mass*corr_length**2))
+    self_energy = 4 * np.pi**2 * static_gap**2 * free_propagator_hole \
+                    * ( 1 - (free_propagator_hole - (ek_grids-fermi_surface)*2*free_propagator_hole**2) / (4*mass*corr_length**2) )
 
     # compute green's function
     green_function = free_propagator_particle / (1-free_propagator_particle*self_energy)
@@ -104,11 +105,11 @@ if "__main__":
     # set up model params
     freq_cutoff, k_cutoff = 8.0, 6.0
     freq_num, k_num = int(1e3), 100
-    infinitesimal_imag = 0.3
+    infinitesimal_imag = 0.2
     
     # continuum model with dispersion relation E = p^2/(2m) - mu
     mass = 1.0
-    fermi_surface = -5.0
+    fermi_surface = -7.0
     static_gap = 0.1
     corr_length = 20.0
 
