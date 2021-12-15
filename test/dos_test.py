@@ -96,6 +96,37 @@ def calculate_dos_approximate():
     # return freq_grids, dos_list
 
 
+def NumericalDeltaFunc(x, epsilon):
+    # poisson core
+    return  epsilon/(epsilon**2+x**2)/np.pi
+
+
+def calculate_dos_analytic(epsilon):
+    # generate grids for momentums of 2d
+    k_grids_1d = np.linspace(-k_cutoff, k_cutoff, k_num)
+    kx_grids_2d = np.array(np.mat([px for px in k_grids_1d for py in k_grids_1d]).transpose())
+    ky_grids_2d = np.array(np.mat([py for px in k_grids_1d for py in k_grids_1d]).transpose())
+    freq_grids = np.linspace(-freq_cutoff, freq_cutoff, freq_num)
+    
+    ek_grids = (kx_grids_2d**2+ky_grids_2d**2)/(2*mass) + fermi_surface
+    eigen_energy = (ek_grids**2 + 4*np.pi * static_gap**2)**0.5
+    
+    # mean-field results
+    spectrum = np.pi * (freq_grids + ek_grids)/eigen_energy \
+                     * (NumericalDeltaFunc(freq_grids-eigen_energy, epsilon) - NumericalDeltaFunc(freq_grids+eigen_energy, epsilon))                 
+
+    # add pertubated corrections
+    spectrum += (np.pi*static_gap/corr_length)**2/mass / (2*2**0.5*eigen_energy**3) \
+              * (NumericalDeltaFunc(freq_grids+eigen_energy,epsilon) - NumericalDeltaFunc(freq_grids-eigen_energy,epsilon))
+    # spectrum -= (np.pi*static_gap/corr_length)**2*(ek_grids-fermi_surface)*2**0.5/mass \
+    #           * (3*freq_grids+2*ek_grids)/eigen_energy**3/(freq_grids+ek_grids)**2 \
+    #           * (NumericalDeltaFunc(freq_grids-eigen_energy,epsilon) + NumericalDeltaFunc(freq_grids+eigen_energy,epsilon))
+    spectrum += (ek_grids-fermi_surface)*(static_gap*corr_length)**(-2)/4/mass * NumericalDeltaFunc(freq_grids+ek_grids,epsilon)
+
+    # compress to obatin density of state
+    dos_list = (spectrum).sum(axis=0)/spectrum.shape[0]
+    return freq_grids, dos_list
+
 
 if "__main__":
     """
@@ -111,7 +142,7 @@ if "__main__":
     mass = 1.0
     fermi_surface = -7.0
     static_gap = 0.1
-    corr_length = 20.0
+    corr_length = 30.0
 
     # exact, relatively speaking, results from calculation
     freq_exact, dos_exact = calculate_dos_exact()
@@ -119,11 +150,16 @@ if "__main__":
     # approximated results
     freq_approx, dos_approx = calculate_dos_approximate()
 
+    # analytic approximated results
+    epsilon = infinitesimal_imag
+    freq_analytic, dos_analytic = calculate_dos_analytic(epsilon=epsilon)
+
     # plot and comparison
     plt.figure()
     plt.grid(linestyle="-.")
     plt.plot(freq_exact, dos_exact, label="Exact")
     plt.plot(freq_approx, dos_approx, label="Approximate")
+    plt.plot(freq_analytic, dos_analytic, label="Analytic")
     plt.ylim(bottom=0.0)
     plt.xlabel("${\omega}$", fontsize=13)
     plt.ylabel("${N(\omega)}$", fontsize=13)
